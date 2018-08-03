@@ -13,8 +13,8 @@ Inviter alle foresatte til AAD generelt. De må bekrefte invitasjonen innen 90 d
 .\InviterEksterneAAD.ps1 -KildeCSV .\Foresatte2018-2019.csv
 
 .EXAMPLE
-Inviter alle foresatte til 
-.\InviterEksterneAAD.ps1
+Installer AzureADPreview-modul
+.\InviterEksterneAAD.ps1 -fiksaadpreview
 
 .NOTES
 Syntaks for CSV-filen er "E-post;Visningsnavn" med semikolon. Dette tillater bruk av komma i visningsnavn.
