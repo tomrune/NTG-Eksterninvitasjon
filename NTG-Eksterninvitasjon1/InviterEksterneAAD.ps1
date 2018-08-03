@@ -150,11 +150,5 @@ return
 # Eksempel med egendefinert melding https://sileotech.com/sharepoint-online-azure-ad-b2b-custom-email-invites-users-using-powershell/
 # Sende egendefinert e-post: https://gallery.technet.microsoft.com/scriptcenter/Send-MailMessage-3a920a6d
 
-## TODO
-# - Test Powershell-versjon
-# - Test pålogging AzureAD
-# - Meld inn i grupper (linker ovenfor)
-# x Generer eksempel-CSV
-
 ## av tomrune@knowledgegroup.no 2018-07-05
 #
