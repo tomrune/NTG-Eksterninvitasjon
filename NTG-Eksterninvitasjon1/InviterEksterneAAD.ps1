@@ -13,8 +13,8 @@ Inviter alle foresatte til AAD generelt. De må bekrefte invitasjonen innen 90 d
 .\InviterEksterneAAD.ps1 -KildeCSV .\Foresatte2018-2019.csv
 
 .EXAMPLE
-Inviter alle foresatte til 
-.\InviterEksterneAAD.ps1
+Fikse AzureADPreview på maskinen
+.\InviterEksterneAAD.ps1 -fiksaadpreview
 
 .NOTES
 Syntaks for CSV-filen er "E-post;Visningsnavn" med semikolon. Dette tillater bruk av komma i visningsnavn.
@@ -115,11 +115,23 @@ if(!$kildecsv -eq ""){
 ##
 ## Skriptets hovedlogikk starter her
 #
+# Definer disse verdiene for din organisasjon:
+$invitertil = "https://www.office.com" # hvor ekstern blir sendt når de godtar invitasjonen
+$meldingstekst = "Velkommen som foresatt til vår skole. Du vil motta ytterligere informasjon fra oss." # Denne egendefinerte meldingsteksten vises i invitasjonen de mottar
 
+# Leser inn angitt CSV-fil, antar ; som skilletegn mellom kolonner og en header-rad med epost;visningsnavn
 $gjester = Import-Csv $kildecsv -Delimiter ";" 
 
-$gjester = % {
-	New-AzureADMSInvitation -InvitedUserEmailAddress $_.epost -InvitedUserDisplayName $_.visningsnavn -InviteRedirectUrl "https://myapps.microsoft.com" -SendInvitationMessage $True
+# Bygg invitasjonsmeldingen
+$melding = New-Object Microsoft.Open.MSGraph.Model.InvitedUserMessageInfo
+$melding.CustomizedMessageBody = $meldingstekst
+
+# For hver gjest, send en e-postinvitasjon til dem
+foreach ($gjest in $gjester) 
+	{
+		
+		New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl "https://myapps.microsoft.com" -InvitedUserMessageInfo $melding -SendInvitationMessage $True
+		Write-Host "Invitasjon sendt for $gjest"
 	}
 
 
