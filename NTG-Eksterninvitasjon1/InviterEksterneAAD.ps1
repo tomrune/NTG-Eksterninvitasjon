@@ -76,6 +76,9 @@ function systemkrav {
 		Write-Host "Vi behøver AzureADPreview. Bruk parameter -fiksaadpreview for å installere."
 		exit 3;
 	} #endif
+
+	# Kontroller om vi er pålogget AzureAD
+
 }
 
 function fiksaad {
@@ -142,10 +145,16 @@ return
 
 ## Kilde-henvisninger
 # https://social.technet.microsoft.com/wiki/contents/articles/15994.powershell-advanced-function-parameter-attributes.aspx
-# 
+# Sende flere invitasjoner: https://docs.microsoft.com/en-us/powershell/module/azuread/new-azureadmsinvitation?view=azureadps-2.0
+#	Forrige: https://www.adamfowlerit.com/2017/03/azure-ad-b2b-powershell-invites/
+# Eksempel med egendefinert melding https://sileotech.com/sharepoint-online-azure-ad-b2b-custom-email-invites-users-using-powershell/
+# Sende egendefinert e-post: https://gallery.technet.microsoft.com/scriptcenter/Send-MailMessage-3a920a6d
+
 ## TODO
 # - Test Powershell-versjon
-# - Generer eksempel-CSV
+# - Test pålogging AzureAD
+# - Meld inn i grupper (linker ovenfor)
+# x Generer eksempel-CSV
 
 ## av tomrune@knowledgegroup.no 2018-07-05
 #
