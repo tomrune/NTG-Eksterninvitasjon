@@ -34,21 +34,21 @@ http://www.knowledgegroup.no
 ## Evaluer parametere angitt ved oppstart
 [CmdletBinding(DefaultParameterSetName='baner')]
 Param(
-	# Skiptest lar være å teste om AADPreview er installert. Angi dersom testen skaper problemer.
+	# SkipTest lar være å teste om AADPreview er installert. Angi dersom testen skaper problemer.
 	[switch]$skiptest,
 
-	# KildeCSV angir CSV-filen data skal leses fra. Syntaks er E-postadresse;Visningsnavn med semi-kolon.
+	# KildeCSV angir CSV-filen data skal leses fra. Syntaks er E-postadresse;Visningsnavn med semi-kolon;Gruppe-ObjektID.
 	[Parameter(Position=0,Mandatory=$True,ValueFromPipeLine=$True,HelpMessage="Bane til CSV-filen.",ParameterSetName='baner')]
 	[string]$kildecsv,
 
-	# (Valgfri) Site angir SharePoint-område de skal inviteres til.
-	# Om denne ikke er angitt inviteres de generelt til skolen. 
-	# Om denne er angitt inviteres de spesifikt til angitt område.
+	# (Valgfri) Site angir URL den inviterte blir sendt til når de godtar invitasjonen.
+	# Om denne ikke er angitt sendes de til $standardsti (endres i skriptet). 
+	# Om denne er angitt vil e-posten alltid sende til spesifik adresse.
 	[Parameter(Position=1,Mandatory=$False,ValueFromPipelineByPropertyName,ParameterSetName='baner')]
 	[string]$site,
 
 	# FiksAAD angir at man vil installere/oppgradere AADPreview. 
-	# OBS! Krever at skriptet kjøres elevert.
+	# OBS! Krever at skriptet kjøres elevert. Kan ikke kombineres med kildecsv eller site.
 	[Parameter(ParameterSetName='pctest',Mandatory=$true)]
 	[switch]$fiksaadpreview
 )
@@ -57,9 +57,6 @@ function systemkrav {
 	## Tester PC-en og ser etter at rett utgave av AzureAD-modulen er installert. 
 	# Returnerer errorcode 3 dersom AADPreview mangler, eller 0 dersom alt er vel. 
 	
-	# Avgjør om rett PowerShell-utgave
-	# kommer i v2
-
 	# Avgjøre om Azure AD Preview er installert
 	if(Get-Module -ListAvailable -Name AzureADPreview) {
 		if($fiksaadpreview) { #Vi viser bare dette dersom fiks-parameter er angitt
@@ -76,9 +73,6 @@ function systemkrav {
 		Write-Host "Vi behøver AzureADPreview. Bruk parameter -fiksaadpreview for å installere."
 		exit 3;
 	} #endif
-
-	# Kontroller om vi er pålogget AzureAD
-
 }
 
 function fiksaad {
@@ -105,6 +99,7 @@ function fiksaad {
 	}
 }
 
+Write-Debug "Tester verdien av angitte parametere"
 if($fiksaadpreview){fiksaad;exit} # Vi installerer AADPreview for deg.
 if(!$skiptest){systemkrav} # Med mindre skiptest er angitt, kjører vi en kjapp systemtest
 if(!$kildecsv -eq ""){
@@ -116,25 +111,49 @@ if(!$kildecsv -eq ""){
 
 #############################################################################################
 ##
-## Skriptets hovedlogikk starter her
-#
-# Definer disse verdiene for din organisasjon:
-$invitertil = "https://www.office.com" # hvor ekstern blir sendt når de godtar invitasjonen
+## Definer disse verdiene for din organisasjon:
+
+# hvor ekstern blir sendt når de godtar invitasjonen dersom ikke annen adresse er angitt (-Site "http://....")
+$standardsti = "https://www.office.com" 
+
+# ønsket meldingstekst i invitasjonen fra AzureAD
 $meldingstekst = "Velkommen som foresatt til vår skole. Du vil motta ytterligere informasjon fra oss." # Denne egendefinerte meldingsteksten vises i invitasjonen de mottar
 
-# Leser inn angitt CSV-fil, antar ; som skilletegn mellom kolonner og en header-rad med epost;visningsnavn
-$gjester = Import-Csv $kildecsv -Delimiter ";" 
+# leser inn angitt CSV-fil, antar ";" som skilletegn mellom kolonner og en header-rad med epost;visningsnavn;gruppeid
+$invitasjoner = Import-Csv $kildecsv -Delimiter ";" 
 
 # Bygg invitasjonsmeldingen
 $melding = New-Object Microsoft.Open.MSGraph.Model.InvitedUserMessageInfo
 $melding.CustomizedMessageBody = $meldingstekst
 
+##############################################################################################
+## Skriptets hovedlogikk løper herfra
+##
+# avgjøre om sti er angitt og gå til standardverdi om ikke:
+if(($sti).ToString() -ne "") {
+	$sti=$standardsti
+	Write-Debug "Går for standardverdi da -Sti ikke er angitt til verdi"
+}
 # For hver gjest, send en e-postinvitasjon til dem
-foreach ($gjest in $gjester) 
-	{
+foreach ($gjest in $invitasjoner) {
+		# Test at alle verdier er tilstede for en gitt rad
+		if($gjest.epost -or $gjest.visningsnavn -or $gjest.gruppeid -eq "")	{
+			Write-Error "Manglende verdier for $gjest.epost"	
+			break # Bryter for brukeren som mangler verdier
+		}
 		
-		New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl "https://myapps.microsoft.com" -InvitedUserMessageInfo $melding -SendInvitationMessage $True
-		Write-Host "Invitasjon sendt for $gjest"
+		# Inviter person og lagre utfallet
+		$resultat = New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl $sti -InvitedUserMessageInfo $melding -SendInvitationMessage $True
+		Write-Debug "Invitasjon sendt for $gjest"
+		
+		# Fra utfallet av importen har vi adressen vedkommende ble invitert til og bruker-id i AzureAD
+		$inviteretil = $resultat.InviteRedeemUrl
+		$brukerid = $resultat.InvitedUser.Id
+
+		# Vi legger den inviterte til i ønsket gruppe
+		Add-AzureADGroupMember -ObjectId $gjester.gruppeid -RefObjectId $brukerid
+		Write-Debug "Lagt " + $gjest.epost + " til i gruppe " + $gjest.gruppeid
+
 	}
 
 
