@@ -105,20 +105,15 @@ function fiksaad {
 
 function kobletilskyen {
 	if($ikkekoblefra){return} else{
-	$adminbruker = Get-Credential -Message "Angi bruker med admin-rolle i Office 365"
 	# Koble til AAD
 	$oktaad = Connect-AzureAD -Credential $adminbruker
-	# Koble til EO
-	$okteo = New-PSSession https://ps.outlook.com/PowerShell -AllowRedirection -Authentication Basic -Credential $adminbruker -ConfigurationName Microsoft.Exchange
-	Import-PSSession $okteo -Prefix eo
-	Write-Debug "Koblet til AAD og EO"
+	Write-Debug "Koblet til AAD"
 	}
 }
 
 function koblefraskyen {
-	if ($okteo -ne $null){Remove-PSSession $okteo}
 	Disconnect-AzureAD
-	Write-Debug "Koblet fra EO og AAD"
+	Write-Debug "Koblet fra AAD"
 }
 
 Write-Debug "Tester verdien av angitte parametere"
@@ -132,8 +127,8 @@ if(!$kildecsv -eq $null){
 }
 
 # Definerer variablene globalt og sørg for at alt er frakoblet, så kobler vi til
-if ($ikkekoblefra -ne $true) {
-	$adminbruker=$null;$oktaad=$null;$okteo=$null;
+if (!$ikkekoblefra) {
+	oktaad=$null
 	koblefraskyen;
 	kobletilskyen
 	Write-Debug "Koblet til og fra"}
