@@ -41,11 +41,15 @@ Param(
 	[Parameter(Position=0,Mandatory=$True,ValueFromPipeLine=$True,HelpMessage="Bane til CSV-filen.",ParameterSetName='baner')]
 	[string]$kildecsv,
 
-	# (Valgfri) Site angir URL den inviterte blir sendt til når de godtar invitasjonen.
+	# (Valgfri) Sti angir URL den inviterte blir sendt til når de godtar invitasjonen.
 	# Om denne ikke er angitt sendes de til $standardsti (endres i skriptet). 
-	# Om denne er angitt vil e-posten alltid sende til spesifik adresse.
+	# Om denne er angitt vil e-posten alltid sende vedkommende til spesifik adresse.
 	[Parameter(Position=1,Mandatory=$False,ValueFromPipelineByPropertyName,ParameterSetName='baner')]
-	[string]$site,
+	[string]$sti,
+
+	# (Valgfri) Ikkekoblefra angir at vi ikke kobler fra skyen før/etter skriptet har kjørt.
+	[Parameter(Position=2,Mandatory=$False,ValueFromPipelineByPropertyName,ParameterSetName='baner')]
+	[switch]$ikkekoblefra,
 
 	# FiksAAD angir at man vil installere/oppgradere AADPreview. 
 	# OBS! Krever at skriptet kjøres elevert. Kan ikke kombineres med kildecsv eller site.
@@ -99,50 +103,80 @@ function fiksaad {
 	}
 }
 
+function kobletilskyen {
+	if($ikkekoblefra){return} else{
+	$adminbruker = Get-Credential -Message "Angi bruker med admin-rolle i Office 365"
+	# Koble til AAD
+	$oktaad = Connect-AzureAD -Credential $adminbruker
+	# Koble til EO
+	$okteo = New-PSSession https://ps.outlook.com/PowerShell -AllowRedirection -Authentication Basic -Credential $adminbruker -ConfigurationName Microsoft.Exchange
+	Import-PSSession $okteo -Prefix eo
+	Write-Debug "Koblet til AAD og EO"
+	}
+}
+
+function koblefraskyen {
+	if ($okteo -ne $null){Remove-PSSession $okteo}
+	Disconnect-AzureAD
+	Write-Debug "Koblet fra EO og AAD"
+}
+
 Write-Debug "Tester verdien av angitte parametere"
 if($fiksaadpreview){fiksaad;exit} # Vi installerer AADPreview for deg.
 if(!$skiptest){systemkrav} # Med mindre skiptest er angitt, kjører vi en kjapp systemtest
-if(!$kildecsv -eq ""){
+if(!$kildecsv -eq $null){
 	if(!(Test-Path $kildecsv)){
 		Write-Error "Systemtest: Finner ikke filen $kildecsv"
 		exit 2
 		}
 }
 
+# Definerer variablene globalt og sørg for at alt er frakoblet, så kobler vi til
+if ($ikkekoblefra -ne $true) {
+	$adminbruker=$null;$oktaad=$null;$okteo=$null;
+	koblefraskyen;
+	kobletilskyen
+	Write-Debug "Koblet til og fra"}
 #############################################################################################
 ##
 ## Definer disse verdiene for din organisasjon:
-
 # hvor ekstern blir sendt når de godtar invitasjonen dersom ikke annen adresse er angitt (-Site "http://....")
 $standardsti = "https://www.office.com" 
 
 # ønsket meldingstekst i invitasjonen fra AzureAD
 $meldingstekst = "Velkommen som foresatt til vår skole. Du vil motta ytterligere informasjon fra oss." # Denne egendefinerte meldingsteksten vises i invitasjonen de mottar
 
+##############################################################################################
+## Skriptets hovedlogikk løper herfra
+##
+
 # leser inn angitt CSV-fil, antar ";" som skilletegn mellom kolonner og en header-rad med epost;visningsnavn;gruppeid
 $invitasjoner = Import-Csv $kildecsv -Delimiter ";" 
+foreach ($rad in $invitasjoner) {
+		# Test at alle verdier er tilstede for en gitt rad, avbryt operasjonen om raden er tom
+		if(($gjest.epost -or $gjest.visningsnavn -or $gjest.gruppeid) -eq $null)	{
+			Write-Error "Manglende verdier for $gjest.epost"	
+			break # Bryter for brukeren som mangler verdier
+		}
+	}
 
 # Bygg invitasjonsmeldingen
 $melding = New-Object Microsoft.Open.MSGraph.Model.InvitedUserMessageInfo
 $melding.CustomizedMessageBody = $meldingstekst
 
-##############################################################################################
-## Skriptets hovedlogikk løper herfra
-##
 # avgjøre om sti er angitt og gå til standardverdi om ikke:
-if(($sti).ToString() -ne "") {
+if($sti -ne $null) {
 	$sti=$standardsti
 	Write-Debug "Går for standardverdi da -Sti ikke er angitt til verdi"
 }
-# For hver gjest, send en e-postinvitasjon til dem
-foreach ($gjest in $invitasjoner) {
-		# Test at alle verdier er tilstede for en gitt rad
-		if($gjest.epost -or $gjest.visningsnavn -or $gjest.gruppeid -eq "")	{
-			Write-Error "Manglende verdier for $gjest.epost"	
-			break # Bryter for brukeren som mangler verdier
-		}
+
+# Behandle hver rad
+ForEach ($gjest in $invitasjoner) {
+		# Klargjør meldingstekst for fremdriftsindikator
+		[string]$aktivitetsmelding = "Inviterer " + ($gjest.epost).ToString() 
 		
 		# Inviter person og lagre utfallet
+		Write-Progress -Activity $aktivitetsmelding -Status "Sender gjesteinvitasjon fra AAD"
 		$resultat = New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl $sti -InvitedUserMessageInfo $melding -SendInvitationMessage $True
 		Write-Debug "Invitasjon sendt for $gjest"
 		
@@ -150,11 +184,12 @@ foreach ($gjest in $invitasjoner) {
 		$inviteretil = $resultat.InviteRedeemUrl
 		$brukerid = $resultat.InvitedUser.Id
 
-		# Vi legger den inviterte til i ønsket gruppe
-		Add-AzureADGroupMember -ObjectId $gjester.gruppeid -RefObjectId $brukerid
-		Write-Debug "Lagt " + $gjest.epost + " til i gruppe " + $gjest.gruppeid
-
+		# Vi legger den inviterte til i ønsket Office 365-Gruppe
+		Write-Progress -Activity $aktivitetsmelding -Status "Legger bruker inn i gruppe"
+		Add-AzureADGroupMember -ObjectId $gjest.gruppeid -RefObjectId $brukerid
+		Write-Debug "Lagt " $gjest.epost " i gruppe " $gjest.gruppeid
 	}
+Write-Progress -Activity "Avslutter" -Completed
 
 
 #############################################################################################
