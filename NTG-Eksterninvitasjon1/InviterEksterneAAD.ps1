@@ -103,18 +103,18 @@ function fiksaad {
 	}
 }
 
-function kobletilskyen {
-	if($ikkekoblefra){return} else{
-	# Koble til AAD
-	$oktaad = Connect-AzureAD -Credential $adminbruker
-	Write-Debug "Koblet til AAD"
-	}
-}
-
-function koblefraskyen {
-	Disconnect-AzureAD
-	Write-Debug "Koblet fra AAD"
-}
+#function kobletilskyen {
+#	if($ikkekoblefra){return} else{
+#	# Koble til AAD
+#	$oktaad = Connect-AzureAD -Credential $adminbruker
+#	Write-Debug "Koblet til AAD"
+#	}
+#}
+#
+#function koblefraskyen {
+#	Disconnect-AzureAD
+#	Write-Debug "Koblet fra AAD"
+#}
 
 Write-Debug "Tester verdien av angitte parametere"
 if($fiksaadpreview){fiksaad;exit} # Vi installerer AADPreview for deg.
@@ -127,16 +127,16 @@ if(!$kildecsv -eq $null){
 }
 
 # Definerer variablene globalt og sørg for at alt er frakoblet, så kobler vi til
-if (!$ikkekoblefra) {
-	oktaad=$null
-	koblefraskyen;
-	kobletilskyen
-	Write-Debug "Koblet til og fra"}
+#if (!$ikkekoblefra) {
+#	oktaad=$null
+#	koblefraskyen;
+#	kobletilskyen
+#	Write-Debug "Koblet til og fra"}
 #############################################################################################
 ##
 ## Definer disse verdiene for din organisasjon:
 # hvor ekstern blir sendt når de godtar invitasjonen dersom ikke annen adresse er angitt (-Site "http://....")
-$standardsti = "https://www.office.com" 
+#$standardsti = "https://www.office.com" 
 
 # ønsket meldingstekst i invitasjonen fra AzureAD
 $meldingstekst = "Velkommen som foresatt til vår skole. Du vil motta ytterligere informasjon fra oss." # Denne egendefinerte meldingsteksten vises i invitasjonen de mottar
@@ -172,7 +172,7 @@ ForEach ($gjest in $invitasjoner) {
 		
 		# Inviter person og lagre utfallet
 		Write-Progress -Activity $aktivitetsmelding -Status "Sender gjesteinvitasjon fra AAD"
-		$resultat = New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl $sti -InvitedUserMessageInfo $melding -SendInvitationMessage $True
+		$resultat = New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl $gjest.teamurl -InvitedUserMessageInfo $melding -SendInvitationMessage $True
 		Write-Debug "Invitasjon sendt for $gjest"
 		
 		# Fra utfallet av importen har vi adressen vedkommende ble invitert til og bruker-id i AzureAD
@@ -182,7 +182,6 @@ ForEach ($gjest in $invitasjoner) {
 		# Vi legger den inviterte til i ønsket Office 365-Gruppe
 		Write-Progress -Activity $aktivitetsmelding -Status "Legger bruker inn i gruppe"
 		Add-AzureADGroupMember -ObjectId $gjest.gruppeid -RefObjectId $brukerid
-		Write-Debug "Lagt " $gjest.epost " i gruppe " $gjest.gruppeid
 	}
 Write-Progress -Activity "Avslutter" -Completed
 
