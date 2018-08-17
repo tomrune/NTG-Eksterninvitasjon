@@ -17,7 +17,7 @@ Fikse AzureADPreview på maskinen
 .\InviterEksterneAAD.ps1 -fiksaadpreview
 
 .NOTES
-Syntaks for CSV-filen er "E-post;Visningsnavn" med semikolon. Dette tillater bruk av komma i visningsnavn.
+Syntaks for CSV-filen er "epost;visningsnavn;aadgruppeid;eogruppenavn;url" med semikolon. Dette tillater bruk av komma i visningsnavn.
 Du kan transformere komma til semi-kolon for en CSV-fil ved å bruke f.eks. 
 	$elevliste = Import-CSV .\elevene1.csv -Delimiter ","
 	$elevliste = Export-CSV .\elevene2.csv -Delimiter ";"
@@ -28,8 +28,7 @@ Skriptet er skrevet av tomrune@knowledgegroup.no
 .LINK
 http://www.knowledgegroup.no 
 
-#>
-
+#> # Hjelpeblokk
 
 ## Evaluer parametere angitt ved oppstart
 [CmdletBinding(DefaultParameterSetName='baner')]
@@ -41,21 +40,11 @@ Param(
 	[Parameter(Position=0,Mandatory=$True,ValueFromPipeLine=$True,HelpMessage="Bane til CSV-filen.",ParameterSetName='baner')]
 	[string]$kildecsv,
 
-	# (Valgfri) Sti angir URL den inviterte blir sendt til når de godtar invitasjonen.
-	# Om denne ikke er angitt sendes de til $standardsti (endres i skriptet). 
-	# Om denne er angitt vil e-posten alltid sende vedkommende til spesifik adresse.
-	[Parameter(Position=1,Mandatory=$False,ValueFromPipelineByPropertyName,ParameterSetName='baner')]
-	[string]$sti,
-
-	# (Valgfri) Ikkekoblefra angir at vi ikke kobler fra skyen før/etter skriptet har kjørt.
-	[Parameter(Position=2,Mandatory=$False,ValueFromPipelineByPropertyName,ParameterSetName='baner')]
-	[switch]$ikkekoblefra,
-
 	# FiksAAD angir at man vil installere/oppgradere AADPreview. 
 	# OBS! Krever at skriptet kjøres elevert. Kan ikke kombineres med kildecsv eller site.
 	[Parameter(ParameterSetName='pctest',Mandatory=$true)]
 	[switch]$fiksaadpreview
-)
+) # Defininsjon og krav for parametere til skriptet
 
 function systemkrav {
 	## Tester PC-en og ser etter at rett utgave av AzureAD-modulen er installert. 
@@ -77,15 +66,15 @@ function systemkrav {
 		Write-Host "Vi behøver AzureADPreview. Bruk parameter -fiksaadpreview for å installere."
 		exit 3;
 	} #endif
-}
+} # Sjekk om AADPreview er installert
 
-function fiksaad {
+function fiksaadpreview {
 	## Installerer/oppgraderer AADPreview, avinstallerer AAD om nødvendig. 
 	
 	# Er vi lokaladmin?
 	if(!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 		Write-Error "Systemtest: Skriptet må kjøres som lokaladmin for å installere AzureAD!"
-		exit 3;
+		exit 2;
 	} else {
 		if(Get-Module -ListAvailable -Name AzureADPreview) { # Avinstaller evt AADPreview for å installere siste versjon
 				Uninstall-Module AzureADPreview -Force
@@ -101,42 +90,28 @@ function fiksaad {
 		Write-Host "Du kan nå kjøre skriptet som vanlig bruker. Lokaladmin er ikke lenger nødvendig."
 		exit;
 	}
-}
+} # Installere AADPreview
 
-#function kobletilskyen {
-#	if($ikkekoblefra){return} else{
-#	# Koble til AAD
-#	$oktaad = Connect-AzureAD -Credential $adminbruker
-#	Write-Debug "Koblet til AAD"
-#	}
-#}
-#
-#function koblefraskyen {
-#	Disconnect-AzureAD
-#	Write-Debug "Koblet fra AAD"
-#}
+function kobletilaad {
+	try { $proveaad = Get-AzureADTenantDetail } 
+	catch [Microsoft.Open.Azure.AD.CommonLibrary.AadNeedAuthenticationException] 
+	{ Write-Host "Vi er ikke koblet til Azure AD. Kobler til..."; Connect-AzureAD}
+} # Test om kobling til AAD er aktiv og koble til om ikke
 
 Write-Debug "Tester verdien av angitte parametere"
-if($fiksaadpreview){fiksaad;exit} # Vi installerer AADPreview for deg.
+if($fiksaadpreview){fiksaadpreview;exit} # Vi installerer AADPreview for deg.
 if(!$skiptest){systemkrav} # Med mindre skiptest er angitt, kjører vi en kjapp systemtest
 if(!$kildecsv -eq $null){
+	# Sjekk at filen finnes
 	if(!(Test-Path $kildecsv)){
 		Write-Error "Systemtest: Finner ikke filen $kildecsv"
 		exit 2
 		}
-}
+} # Rask sjekk om filen finnes
 
-# Definerer variablene globalt og sørg for at alt er frakoblet, så kobler vi til
-#if (!$ikkekoblefra) {
-#	oktaad=$null
-#	koblefraskyen;
-#	kobletilskyen
-#	Write-Debug "Koblet til og fra"}
 #############################################################################################
 ##
 ## Definer disse verdiene for din organisasjon:
-# hvor ekstern blir sendt når de godtar invitasjonen dersom ikke annen adresse er angitt (-Site "http://....")
-#$standardsti = "https://www.office.com" 
 
 # ønsket meldingstekst i invitasjonen fra AzureAD
 $meldingstekst = "Velkommen som foresatt til vår skole. Du vil motta ytterligere informasjon fra oss." # Denne egendefinerte meldingsteksten vises i invitasjonen de mottar
@@ -145,25 +120,23 @@ $meldingstekst = "Velkommen som foresatt til vår skole. Du vil motta ytterliger
 ## Skriptets hovedlogikk løper herfra
 ##
 
-# leser inn angitt CSV-fil, antar ";" som skilletegn mellom kolonner og en header-rad med epost;visningsnavn;gruppeid
+# leser inn angitt CSV-fil, antar ";" som skilletegn mellom kolonner og en header-rad med 
+# epost;visningsnavn;gruppeid;url
 $invitasjoner = Import-Csv $kildecsv -Delimiter ";" 
 foreach ($rad in $invitasjoner) {
-		# Test at alle verdier er tilstede for en gitt rad, avbryt operasjonen om raden er tom
-		if(($gjest.epost -or $gjest.visningsnavn -or $gjest.gruppeid) -eq $null)	{
-			Write-Error "Manglende verdier for $gjest.epost"	
+		# Test at kritiske verdier er tilstede for en gitt rad, avbryt operasjonen om verdien er tom
+		if(($gjest.epost -or $gjest.visningsnavn -or $gjest.aadgruppeid -or $gjest.URL) -eq $null)	{
+			Write-Error "Mangler verdier for $gjest.epost. Bruk Get-Help på skriptet for å se syntaks for CSV."
 			break # Bryter for brukeren som mangler verdier
 		}
 	}
 
+# Sjekk om vi er tilkoblet AAD
+kobletilaad
+
 # Bygg invitasjonsmeldingen
 $melding = New-Object Microsoft.Open.MSGraph.Model.InvitedUserMessageInfo
 $melding.CustomizedMessageBody = $meldingstekst
-
-# avgjøre om sti er angitt og gå til standardverdi om ikke:
-if($sti -ne $null) {
-	$sti=$standardsti
-	Write-Debug "Går for standardverdi da -Sti ikke er angitt til verdi"
-}
 
 # Behandle hver rad
 ForEach ($gjest in $invitasjoner) {

@@ -1,8 +1,4 @@
-epost;visningsnavn;gruppeid;teamurl
-zwirwel@msn.com;Tom Rune 1 (forelder);344f4584-fb38-42de-a2bb-1285a7d0c1fd;https://teams.microsoft.com/l/team/19%3a22f108a4f0d8441b913b151a6d9c9ccb%40thread.skype/conversations?groupId=344f4584-fb38-42de-a2bb-1285a7d0c1fd&tenantId=786febfe-ba91-4089-acc5-ffc9017fb77a
-tom.rune.berg@outlook.com;Tom Rune 2 (forelder);344f4584-fb38-42de-a2bb-1285a7d0c1fd;https://teams.microsoft.com/l/team/19%3a22f108a4f0d8441b913b151a6d9c9ccb%40thread.skype/conversations?groupId=344f4584-fb38-42de-a2bb-1285a7d0c1fd&tenantId=786febfe-ba91-4089-acc5-ffc9017fb77a
-trberg007@gmail.com;Tom R GMAIL (forelder);344f4584-fb38-42de-a2bb-1285a7d0c1fd;https://teams.microsoft.com/l/team/19:22f108a4f0d8441b913b151a6d9c9ccb%40thread.skype/conversations?tenantId=786febfe-ba91-4089-acc5-ffc9017fb77a
-
-
-
-
+epost;visningsnavn;aadgruppeid;eogruppenavn;url
+zwirwel@msn.com;Tom Rune 1 (forelder);344f4584-fb38-42de-a2bb-1285a7d0c1fd;Test-MES;http://www.knowledgegroup.no/
+tom.rune.berg@outlook.com;Tom Rune 2 (forelder);344f4584-fb38-42de-a2bb-1285a7d0c1fd;Test-MES;http://www.knowledgegroup.no/
+trberg007@gmail.com;Tom R GMAIL (forelder);344f4584-fb38-42de-a2bb-1285a7d0c1fd;Test-MES;http://www.knowledgegroup.no/
