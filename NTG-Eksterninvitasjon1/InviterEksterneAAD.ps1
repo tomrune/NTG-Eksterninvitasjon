@@ -145,7 +145,7 @@ ForEach ($gjest in $invitasjoner) {
 		
 		# Inviter person og lagre utfallet
 		Write-Progress -Activity $aktivitetsmelding -Status "Sender gjesteinvitasjon fra AAD"
-		$resultat = New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl $gjest.teamurl -InvitedUserMessageInfo $melding -SendInvitationMessage $True
+		$resultat = New-AzureADMSInvitation -InvitedUserEmailAddress $gjest.epost -InvitedUserDisplayName $gjest.visningsnavn -InviteRedirectUrl $gjest.url -InvitedUserMessageInfo $melding -SendInvitationMessage $True
 		Write-Debug "Invitasjon sendt for $gjest"
 		
 		# Fra utfallet av importen har vi adressen vedkommende ble invitert til og bruker-id i AzureAD
