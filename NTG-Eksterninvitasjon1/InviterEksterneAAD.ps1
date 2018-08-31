@@ -153,8 +153,8 @@ ForEach ($gjest in $invitasjoner) {
 		$brukerid = $resultat.InvitedUser.Id
 
 		# Vi legger den inviterte til i ønsket Office 365-Gruppe
-		Write-Progress -Activity $aktivitetsmelding -Status "Legger bruker inn i gruppe"
-		Add-AzureADGroupMember -ObjectId $gjest.gruppeid -RefObjectId $brukerid
+		#Write-Progress -Activity $aktivitetsmelding -Status "Legger bruker inn i gruppe"
+		#Add-AzureADGroupMember -ObjectId $gjest.gruppeid -RefObjectId $brukerid
 	}
 Write-Progress -Activity "Avslutter" -Completed
 
