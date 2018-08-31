@@ -122,7 +122,7 @@ $meldingstekst = "Velkommen som foresatt til vår skole. Du vil motta ytterliger
 
 # leser inn angitt CSV-fil, antar ";" som skilletegn mellom kolonner og en header-rad med 
 # epost;visningsnavn;gruppeid;url
-$invitasjoner = Import-Csv $kildecsv -Delimiter ";" 
+$invitasjoner = Import-Csv $kildecsv -Delimiter ";" -Encoding Default 
 foreach ($rad in $invitasjoner) {
 		# Test at kritiske verdier er tilstede for en gitt rad, avbryt operasjonen om verdien er tom
 		if(($gjest.epost -or $gjest.visningsnavn -or $gjest.aadgruppeid -or $gjest.URL) -eq $null)	{
