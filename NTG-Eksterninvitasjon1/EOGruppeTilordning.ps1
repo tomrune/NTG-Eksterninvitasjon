@@ -77,7 +77,7 @@ ForEach ($gjest in $invitasjoner) {
 		
 		# Inviter person og lagre utfallet
 		Write-Progress -Activity $aktivitetsmelding -Status "Legger foresatt i Gruppe"
-		$resultat = Add-DistributionGroupMember -Identity $gjest.eogruppenavn -Member $gjest.visningsnavn
+		$resultat = Add-DistributionGroupMember -Identity $gjest.eogruppenavn -Member $gjest.epost
 		Write-Debug "La til $gjest"		
 	}
 Write-Progress -Activity "Avslutter" -Completed
